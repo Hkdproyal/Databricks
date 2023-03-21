@@ -289,6 +289,111 @@ Left_semi_join = employee_dfx.join(department_details, employee_dfx.employee_dep
 dbutils.fs.help()
 dbutils.notebook.help()
 dbutils.widgets.help()
+----------------------
+dbutils.widgets provides utilities for working with notebook widgets. You can create different types of widgets and get their bound value. For more info about a method, use dbutils.widgets.help("methodName").
+       
+combobox(name: String, defaultValue: String, choices: Seq, label: String): void -> Creates a combobox input widget with a given name, default value and choices
+      
+dropdown(name: String, defaultValue: String, choices: Seq, label: String): void -> Creates a dropdown input widget a with given name, default value and choices
+
+get(name: String): String -> Retrieves current value of an input widget
+
+getArgument(name: String, optional: String): String -> (DEPRECATED) Equivalent to get
+
+multiselect(name: String, defaultValue: String, choices: Seq, label: String): void -> Creates a multiselect input widget with a given name, default value and choices
+
+remove(name: String): void -> Removes an input widget from the notebook
+
+removeAll: void -> Removes all widgets in the notebook
+
+text(name: String, defaultValue: String, label: String): void -> Creates a text input widget with a given name and default value
+
 dbutils.secrets.help("get")
 dbutils.fs.help("cp")
 dbutils.notebook.help("exit")
+
+
+#DBUTILS COMMANDS 
+------------------
+##list filesystem
+-----------------
+dbutils.fs.ls("dbfs:/FileStore")
+        Out[10]: [FileInfo(path='dbfs:/FileStore/shared_uploads/', name='shared_uploads/', size=0, modificationTime=0),
+        FileInfo(path='dbfs:/FileStore/tables/', name='tables/', size=0, modificationTime=0),
+        FileInfo(path='dbfs:/FileStore/tables_output/', name='tables_output/', size=0, modificationTime=0
+##Head 
+-------
+dbutils.fs.head("/FileStore/tables/snakes_count_100.csv")
+        Out[11]: '"Game Number", "Game Length"\n1, 30\n2, 29\n3, 31\n4, 16\n5, 24\n6, 29\n7, 28\n8, 117\n9, 42\n10, 23\n11, 40\n12, 15\n13, 18\n14, 51\n15, 15\n16, 19\n17, 30\n18, 25\n19, 17\n20, 55\n21, 20\n22, 12\n23, 39\n24, 25\n25, 56\n26, 61\n27, 77\n28, 34\n29, 14\n30, 8\n31, 31\n32, 34\n33, 22\n34, 12\n35, 52\n36, 50\n37, 24\n38, 20\n39, 91\n40, 33\n41, 27\n42, 25\n43, 83\n44, 12\n45, 21\n46, 38\n47, 20\n48, 24\n49, 37\n50, 18\n51, 56\n52, 20\n53, 47\n54, 51\n55, 22\n56, 46\n57, 24\n58, 35\n59, 28\n60, 12\n61, 28\n62, 43\n63, 50\n64, 37\n65, 127\n66, 11\n67, 12\n68, 22\n69, 25\n70, 57\n71, 53\n72, 38\n73, 33\n74, 16\n75, 35\n76, 29\n77, 23\n78, 21\n79, 11\n80, 31\n81, 12\n82, 37\n83, 40\n84, 29\n85, 14\n86, 15\n87, 38\n88, 74\n89, 19\n90, 121\n91, 52\n92, 25\n93, 14\n94, 12\n95, 31\n96, 25\n97, 16\n98, 19\n99, 54\n100, 24\n'
+
+##Creating new folder 
+---------------------
+dbutils.fs.mkdirs("dbfs:/FileStore/tables/filesystem")
+
+##Copy file to folder 
+---------------------
+dbutils.fs.cp("/FileStore/tables/snakes_count_100.csv","dbfs:/FileStore/tables/filesystem")
+
+##move command
+--------------
+dbutils.fs.mv("/FileStore/tables/snakes_count_1000.csv","dbfs:/FileStore/tables/filesystem")
+
+## Create a new file with content 
+---------------------------------
+dbutils.fs.put("/FileStore/tables/happy.txt", "happy days in future")
+
+## how to see content of a file 
+----------------------------
+dbutils.fs.head("/FileStore/tables/happy.txt")
+
+## remove a file 
+----------------
+dbutils.fs.rm("/FileStore/tables/happy.txt")
+
+===============================
+## DBUTILS NOTEBOOK COMMANDS |
+===============================
+## how to run another notebook --> works only in databricks full subscription
+-----------------------------
+dbutils.notebook.run("another notebook name", timeout in seconds)
+
+## Creating dropdown box 
+-------------------------
+dbutils.widgets.dropdown("Dropdown","1", [str(x) for x in range(1, 11)])
+
+## Creating combo box  --> there is no any difference between combo and dropdown box, we can only select one option
+---------------------
+dbutils.widgets.combobox("combobox","1", [str(x) for x in range(1, 11)])
+
+##Multiselect option in widgets 
+------------------------------
+dbutils.widgets.multiselect("multiselect","car",("car","maruti","benz","volvo"))
+
+#removing the widgets
+----------------------
+dbutils.widgets.remove("combobox")
+dbutils.widgets.removeAll() --> removes all the widgets 
+
+
+
+# Pyspark Explode Functions
+---------------------------
+# Create dataframe with array column 
+------------------------------------
+array_appliance = [
+                   ('Raja',['Tv', 'Refrigirator','Oven', 'AC']),
+                   ('Homesh', ['AC','Washingmachine',None]),
+                   ('Ram',['Grinder','TV']),
+                   ('Ramesh',['Refrigerator','TV',None]),
+                   ('Rajesh',None)
+                   ]
+df_app = spark.createDataFrame(data = array_appliance, schema = ['name','Applainces'])
+df_app.printSchema()
+display(df_app)
+
+    root
+ |-- name: string (nullable = true)
+ |-- Applainces: array (nullable = true)
+ |    |-- element: string (containsNull = true)
+
+![plot]("C:\Users\homes\Documents\Hkdp_Details\Git\db1.png")
