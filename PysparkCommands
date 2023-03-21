@@ -442,8 +442,8 @@ df = spark.createDataFrame(data=data_student, schema = schema)
 df.printSchema()
 display(df)
 
-# When Condition:
------------------
+# CASE CONDITION, WHEN.OTHERWISE
+---------------------------------
 # Method 1 by using When condition:
 ---------------------------------
 from pyspark.sql.functions import when 
@@ -494,3 +494,70 @@ df4 = tgrx.withColumn("Grade", when((tgrx.Mark >= 80) & (tgrx.attendence >=80), 
 |Rame|  Maths|  30|    Fail|        50|      FAIL|    Average|
 |Ragh|  Maths|null|Absentee|        70|   Absence|    Average|
 +----+-------+----+--------+----------+----------+-----------+
+
+## How to find the SPARK VERSION 
+---------------------------------
+from pyspark.sql import SparkSession 
+
+spark = SparkSession.builder.master("local").getOrCreate()
+display(spark.sparkContext.version)
+
+## UNION & UNIONALL
+-------------------
+## UNION fUNCTIONS:
+
+example--
+# Create DataFrame:
+employee_data =[(100,"Stephen","1999","100","M",2000),
+                 (200,"Philips","2002","200","M",8000),
+                 (300,"John","2010","100","",6000)
+               ]
+employee_schema = ["employee_id","name","doj","employee_dept_id","gender","salary"]
+df1 = spark.createDataFrame(data=employee_data, schema = employee_schema)
+display(df1)
+
++-----------+-------+----+----------------+------+------+
+|employee_id|   name| doj|employee_dept_id|gender|salary|
++-----------+-------+----+----------------+------+------+
+|        100|Stephen|1999|             100|     M|  2000|
+|        200|Philips|2002|             200|     M|  8000|
+|        300|   John|2010|             100|      |  6000|
++-----------+-------+----+----------------+------+------+
+
+# Create another DataFrame:
+employee_data1 =[(300,"John","2010","100","",6000),
+                 (400,"Nancy","2001","400","F",1000),
+                 (500,"Rosy","2014","500","M",5000)
+               ]
+employee_schema1 = ["employee_id","name","doj","employee_dept_id","gender","salary"]
+df2 = spark.createDataFrame(data=employee_data1, schema = employee_schema1)
+display(df2)
+
++-----------+-----+----+----------------+------+------+
+|employee_id| name| doj|employee_dept_id|gender|salary|
++-----------+-----+----+----------------+------+------+
+|        300| John|2010|             100|      |  6000|
+|        400|Nancy|2001|             400|     F|  1000|
+|        500| Rosy|2014|             500|     M|  5000|
++-----------+-----+----+----------------+------+------+
+
+#Union Function
+---------------
+union = df1.union(df2)
+display(union)
+
++-----------+-------+----+----------------+------+------+
+|employee_id|   name| doj|employee_dept_id|gender|salary|
++-----------+-------+----+----------------+------+------+
+|        100|Stephen|1999|             100|     M|  2000|
+|        200|Philips|2002|             200|     M|  8000|
+|        300|   John|2010|             100|      |  6000|
+|        300|   John|2010|             100|      |  6000|
+|        400|  Nancy|2001|             400|     F|  1000|
+|        500|   Rosy|2014|             500|     M|  5000|
++-----------+-------+----+----------------+------+------+
+
+# How to drop the Duplicate values in the union function: dropDuplicates()
+--------------------------------------------------------------------------
+union = df1.union(df2)
+display(union.dropDuplicates())
