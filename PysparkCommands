@@ -1,0 +1,294 @@
+## How to read the CSV file 
+---------------------------------
+df = spark.read.format("csv") \
+    .option("Header", True) \
+    .option("Inferschema", True) \
+    .option("sep", ",") \
+    .load("/FileStore/tables/snakes_count_100.csv")
+display(df)
+
+## Another way to read the CSV file 
+-----------------------------------
+df1 = spark.read.format("csv") \
+      .options(header = "True", inferschema ="True", sep =",") \
+      .load("dbfs:/FileStore/tables/snakes_count_10000.csv")
+display(df1.count())
+
+## Reading Multiple files []
+----------------------------
+dfx = spark.read.format("csv") \
+      .options(header = "True", inferschema = "True", sep =",") \
+      .load(["/FileStore/tables/snakes_count_100.csv","dbfs:/FileStore/tables/snakes_count_10000.csv"])
+      
+## Reading all the files under the folder
+-----------------------------------------
+dfc = spark.read.format("csv") \
+      .options(header = "True", inferschema = "True", sep = ",") \
+      .load("dbfs:/FileStore/tables")
+display(dfc)
+print(dfc.count())
+
+dfc.printSchema() --> show the structure 
+
+## How to Create Own schema in Pyspark
+-----------------------------------------
+from pyspark.sql.types import StructType, StructField, IntegerType, StringType
+
+schema_Field = StructType([StructField('id', IntegerType(), True),
+                             StructField('name', StringType(), True),
+                             StructField('nationality', StringType(), True),
+                             StructField('club_team', StringType(), True),
+                             StructField('wage_euro', IntegerType(), True)
+                             ])
+                             
+dft = spark.read.format("csv").schema(schema_Field).option("header", True).load('dbfs:/FileStore/tables/')
+display(dft)
+
+## alternative way to create Own Schema
+--------------------------------------
+alternative_schema = ' id Integer, name string, nationality string, club_team string, wage_euro Int'
+
+dff = spark.read.format("csv").schema(alternative_schema).option("header", True).load('dbfs:/FileStore/tables/')
+display(dff)
+
+
+## Filter Conditions:
+--------------------
+• filter(df.column != 50)
+• filter((f.col'column1') > 50) & (f.col'column2') > 50))
+• filter((f.col('column1*) > 50)|(f.col('column2') > 50))
+• filter(df.column.isNull))
+• filter(df.column.isNotNulI())
+• filter(df.column.like('%%* ))
+• filter(df.name.isin())
+• filter(df.column.contains('' ))
+• filter(df.column.startswith(''))
+• filter(df.column.endswith(''))
+
+##Creating a Dataframe 
+-----------------------
+employee_data =[(10, "Raj kumar", "1999", "100", "M", 2000),
+                (11, "suresh", "1989", "200", "M", 2100),
+                (12, "pavan", "1899", "1001", "M", 2700),
+                (14, "rukesh", "1699", "101", "f", 2500),
+                (15, "jeevan", "1979", "102", "M", 2500)]
+employee_schema = ["employee_id", "name", "doj", "employee_dept_id", "gender", "salary" ]
+
+employee_df =spark.createDataFrame(data=employee_data, schema = employee_schema)
+display(employee_df)
+
+
+## Adding column with values 
+------------------------------
+from pyspark.sql.functions import lit 
+
+example1:
+empdf = fg.withColumn("Location", lit("Mumbai")).show()
+
+
+example2:
+tiger = employee_df1.withColumn("Location", lit("Mumbai")).show()
+
++-----------+---------+----+----------------+------+------+--------+
+|employee_id|     name| doj|employee_dept_id|gender|salary|Location|
++-----------+---------+----+----------------+------+------+--------+
+|         10|Raj kumar|1999|             100|     M|  2000|  Mumbai|
+|         11|   suresh|1989|             200|     M|  2100|  Mumbai|
+|         12|    pavan|1899|            1001|     M|  2700|  Mumbai|
+|         14|   rukesh|1699|             101|     f|  2500|  Mumbai|
+|         15|   jeevan|1979|             102|     M|  2500|  Mumbai|
++-----------+---------+----+----------------+------+------+--------+
+
+## Adding new column with calculation 
+----------------------------------------
+example1:
+from pyspark.sql.functions import concat
+Calculation = employee_df1.withColumn("Bonus", employee_df1.salary*0.1).show()
+
++-----------+---------+----+----------------+------+------+-----+
+|employee_id|     name| doj|employee_dept_id|gender|salary|Bonus|
++-----------+---------+----+----------------+------+------+-----+
+|         10|Raj kumar|1999|             100|     M|  2000|200.0|
+|         11|   suresh|1989|             200|     M|  2100|210.0|
+|         12|    pavan|1899|            1001|     M|  2700|270.0|
+|         14|   rukesh|1699|             101|     f|  2500|250.0|
+|         15|   jeevan|1979|             102|     M|  2500|250.0|
++-----------+---------+----+----------------+------+------+-----+
+
+example2:
+from pyspark.sql.functions import concat 
+calculations1 = Calculation.withColumn("Base salary", Calculation.Bonus*(25%100)).show()
+
++-----------+---------+----+----------------+------+------+-----+-----------+
+|employee_id|     name| doj|employee_dept_id|gender|salary|Bonus|Base salary|
++-----------+---------+----+----------------+------+------+-----+-----------+
+|         10|Raj kumar|1999|             100|     M|  2000|200.0|     5000.0|
+|         11|   suresh|1989|             200|     M|  2100|210.0|     5250.0|
+|         12|    pavan|1899|            1001|     M|  2700|270.0|     6750.0|
+|         14|   rukesh|1699|             101|     f|  2500|250.0|     6250.0|
+|         15|   jeevan|1979|             102|     M|  2500|250.0|     6250.0|
++-----------+---------+----+----------------+------+------+-----+-----------+
+
+### Adding two or more Columns at a time 
+----------------------------------------
+from pyspark.sql.functions import concat 
+addingmorecolumns = calculations1.withColumn("example salary", lit(5000)).withColumn("Name_with_id", concat("name","employee_id")).show()
+
++-----------+---------+----+----------------+------+------+-----+-----------+--------------+------------+
+|employee_id|     name| doj|employee_dept_id|gender|salary|Bonus|Base salary|example salary|Name_with_id|
++-----------+---------+----+----------------+------+------+-----+-----------+--------------+------------+
+|         10|Raj kumar|1999|             100|     M|  2000|200.0|     5000.0|          5000| Raj kumar10|
+|         11|   suresh|1989|             200|     M|  2100|210.0|     5250.0|          5000|    suresh11|
+|         12|    pavan|1899|            1001|     M|  2700|270.0|     6750.0|          5000|     pavan12|
+|         14|   rukesh|1699|             101|     f|  2500|250.0|     6250.0|          5000|    rukesh14|
+|         15|   jeevan|1979|             102|     M|  2500|250.0|     6250.0|          5000|    jeevan15|
++-----------+---------+----+----------------+------+------+-----+-----------+--------------+------------+
+
+## adding space between the name and id 
+----------------------------------------
+addingmorecolumns = calculations1.withColumn("Name_with_id", lit("_"),"employee_id").show()
+
++-----------+---------+----+----------------+------+------+-----+-----------+------------+
+|employee_id|     name| doj|employee_dept_id|gender|salary|Bonus|Base salary|Name_with_id|
++-----------+---------+----+----------------+------+------+-----+-----------+------------+
+|         10|Raj kumar|1999|             100|     M|  2000|200.0|     5000.0|Raj kumar_10|
+|         11|   suresh|1989|             200|     M|  2100|210.0|     5250.0|   suresh_11|
+|         12|    pavan|1899|            1001|     M|  2700|270.0|     6750.0|    pavan_12|
+|         14|   rukesh|1699|             101|     f|  2500|250.0|     6250.0|   rukesh_14|
+|         15|   jeevan|1979|             102|     M|  2500|250.0|     6250.0|   jeevan_15|
++-----------+---------+----+----------------+------+------+-----+-----------+------------+
+
+## Renaming the Column Name:
+-------------------------------
+example1:
+Rename = addingspace.withColumnRenamed("Name_with_id","Name_ID")
+display(Rename)
+
++-----------+---------+----+----------------+------+------+-----+-----------+------------+
+|employee_id|     name| doj|employee_dept_id|gender|salary|Bonus|Base salary|     Name_ID|
++-----------+---------+----+----------------+------+------+-----+-----------+------------+
+|         10|Raj kumar|1999|             100|     M|  2000|200.0|     5000.0|Raj kumar_10|
+|         11|   suresh|1989|             200|     M|  2100|210.0|     5250.0|   suresh_11|
+|         12|    pavan|1899|            1001|     M|  2700|270.0|     6750.0|    pavan_12|
+|         14|   rukesh|1699|             101|     f|  2500|250.0|     6250.0|   rukesh_14|
+|         15|   jeevan|1979|             102|     M|  2500|250.0|     6250.0|   jeevan_15|
++-----------+---------+----+----------------+------+------+-----+-----------+------------+
+
+example2:
+Rename = addingspace.withColumnRenamed("Name_with_id","Name_ID").withColumnRenamed("doj","Date_of_Joining").show()
++-----------+---------+---------------+----------------+------+------+-----+-----------+------------+
+|employee_id|     name|Date_of_Joining|employee_dept_id|gender|salary|Bonus|Base salary|     Name_ID|
++-----------+---------+---------------+----------------+------+------+-----+-----------+------------+
+|         10|Raj kumar|           1999|             100|     M|  2000|200.0|     5000.0|Raj kumar_10|
+|         11|   suresh|           1989|             200|     M|  2100|210.0|     5250.0|   suresh_11|
+|         12|    pavan|           1899|            1001|     M|  2700|270.0|     6750.0|    pavan_12|
+|         14|   rukesh|           1699|             101|     f|  2500|250.0|     6250.0|   rukesh_14|
+|         15|   jeevan|           1979|             102|     M|  2500|250.0|     6250.0|   jeevan_15|
++-----------+---------+---------------+----------------+------+------+-----+-----------+------------+
+
+## Drop a Column 
+----------------
+drop = Rename.drop("Name_ID").drop("Date_of_Joining").show()
+
++-----------+---------+----------------+------+------+-----+-----------+
+|employee_id|     name|employee_dept_id|gender|salary|Bonus|Base salary|
++-----------+---------+----------------+------+------+-----+-----------+
+|         10|Raj kumar|             100|     M|  2000|200.0|     5000.0|
+|         11|   suresh|             200|     M|  2100|210.0|     5250.0|
+|         12|    pavan|            1001|     M|  2700|270.0|     6750.0|
+|         14|   rukesh|             101|     f|  2500|250.0|     6250.0|
+|         15|   jeevan|             102|     M|  2500|250.0|     6250.0|
++-----------+---------+----------------+------+------+-----+-----------+
+
+## JOINS:
+---------
+## Inner Join
+-------------
+inner = employee_dfx.join(department_details, employee_dfx.employee_dept_id == department_details.department_id, "inner" )
+display(inner)
+
++-----------+---------+----+----------------+------+------+---------------+-------------+
+|employee_id|     name| doj|employee_dept_id|gender|salary|department_name|department_id|
++-----------+---------+----+----------------+------+------+---------------+-------------+
+|         10|Raj kumar|1999|             100|     M|  2000|             HR|          100|
+|         11|   suresh|1989|             200|     M|  2100|         Supply|          200|
++-----------+---------+----+----------------+------+------+---------------+-------------+
+
+
+
+## Full-Outer Join --> Gives the result of common tables + left join tables + right join tables 
+------------------------------------------------------------------------------------------------
+Outer_join = employee_dfx.join(department_details, employee_dfx.employee_dept_id == department_details.department_id, "full")
+display(Outer_join)
+
++-----------+---------+----+----------------+------+------+---------------+-------------+
+|employee_id|     name| doj|employee_dept_id|gender|salary|department_name|department_id|
++-----------+---------+----+----------------+------+------+---------------+-------------+
+|         10|Raj kumar|1999|             100|     M|  2000|             HR|          100|
+|         14|   rukesh|1699|             101|     f|  2500|           null|         null|
+|         15|   jeevan|1979|             102|     M|  2500|           null|         null|
+|         11|   suresh|1989|             200|     M|  2100|         Supply|          200|
+|       null|     null|null|            null|  null|  null|          Sales|          300|
+|       null|     null|null|            null|  null|  null|          Stock|          400|
+|         12|    pavan|1899|            1001|     M|  2700|           null|         null|
+
+## Left outer join 
+---------------------
+Outer_join = employee_dfx.join(department_details, employee_dfx.employee_dept_id == department_details.department_id, "Left").show()
+
++-----------+---------+----+----------------+------+------+---------------+-------------+
+|employee_id|     name| doj|employee_dept_id|gender|salary|department_name|department_id|
++-----------+---------+----+----------------+------+------+---------------+-------------+
+|         10|Raj kumar|1999|             100|     M|  2000|             HR|          100|
+|         11|   suresh|1989|             200|     M|  2100|         Supply|          200|
+|         12|    pavan|1899|            1001|     M|  2700|           null|         null|
+|         14|   rukesh|1699|             101|     f|  2500|           null|         null|
+|         15|   jeevan|1979|             102|     M|  2500|           null|         null|
++-----------+---------+----+----------------+------+------+---------------+-------------+
+
+## Right outer join 
+--------------------
+Outer_join = employee_dfx.join(department_details, employee_dfx.employee_dept_id == department_details.department_id, "Right").show()
+
++-----------+---------+----+----------------+------+------+---------------+-------------+
+|employee_id|     name| doj|employee_dept_id|gender|salary|department_name|department_id|
++-----------+---------+----+----------------+------+------+---------------+-------------+
+|         10|Raj kumar|1999|             100|     M|  2000|             HR|          100|
+|         11|   suresh|1989|             200|     M|  2100|         Supply|          200|
+|       null|     null|null|            null|  null|  null|          Sales|          300|
+|       null|     null|null|            null|  null|  null|          Stock|          400|
++-----------+---------+----+----------------+------+------+---------------+-------------+
+
+
+## Left Semi join --> similar to inner join, eliminates the right results 
+-------------------------------------------------------------------------
+Left_semi_join = employee_dfx.join(department_details, employee_dfx.employee_dept_id == department_details.department_id, "leftsemi").show()
+
++-----------+---------+----+----------------+------+------+
+|employee_id|     name| doj|employee_dept_id|gender|salary|
++-----------+---------+----+----------------+------+------+
+|         10|Raj kumar|1999|             100|     M|  2000|
+|         11|   suresh|1989|             200|     M|  2100|
++-----------+---------+----+----------------+------+------+
+
+
+## Left anti join --> eliminates the commom records and gives the o/p
+---------------------------------------------------------------------- 
+Left_semi_join = employee_dfx.join(department_details, employee_dfx.employee_dept_id == department_details.department_id, "anti").show()
+
++-----------+------+----+----------------+------+------+
+|employee_id|  name| doj|employee_dept_id|gender|salary|
++-----------+------+----+----------------+------+------+
+|         12| pavan|1899|            1001|     M|  2700|
+|         14|rukesh|1699|             101|     f|  2500|
+|         15|jeevan|1979|             102|     M|  2500|
++-----------+------+----+----------------+------+------+
+
+## DBUTILS :
+--------
+dbutils.fs.help()
+dbutils.notebook.help()
+dbutils.widgets.help()
+dbutils.secrets.help("get")
+dbutils.fs.help("cp")
+dbutils.notebook.help("exit")
