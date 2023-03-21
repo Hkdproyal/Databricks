@@ -395,7 +395,8 @@ display(df_app)
  |-- name: string (nullable = true)
  |-- Applainces: array (nullable = true)
  |    |-- element: string (containsNull = true)
-
+ 
+ 
 #Explode array field #Explode array field 
 -----------------------------------------
 
@@ -409,3 +410,87 @@ display(df_app)
 df2.printSchema()
 display(df2)
 
+#explode outer --> This even will consider the NULL values 
+----------------------------------------------------------
+from pyspark.sql.functions import explode_outer
+
+display(df_app.select(df_app.name, explode_outer(df_app.Applainces)))
+
+#positional explode ---> displays the index numbers of the values
+------------------------------------------------------------------
+from pyspark.sql.functions import posexplode
+
+display(df_app.select(df_app.name, posexplode(df_app.Applainces)))
+
+
+#Positional explode with NULL ---> when the values has null values then the index also shows as null
+-------------------------------
+from pyspark.sql.functions import posexplode_outer
+display(df_app.select(df_app.name, posexplode_outer(df_app.Applainces)))
+
+
+## CASE FUNCTIONS:
+-------------------#Sample DatFrame  
+data_student = [("Raja","Science",80,"p",90),
+                ("Rakesh","Maths",90,"p",70),
+                ("Rama","English",20,"F",80),
+                ("Rajesh","Science",45,"F",75),
+                ("Ramesh","Maths",30,"F",50),
+                ("Raghav","Maths",None,"NA",70)]
+schema = ["name","Subject","Mark","status", "attendence"]
+df = spark.createDataFrame(data=data_student, schema = schema)
+df.printSchema()
+display(df)
+
+# When Condition:
+-----------------
+# Method 1 by using When condition:
+---------------------------------
+from pyspark.sql.functions import when 
+dft = df.withColumn("Status", when(df.Mark >= 50, "Pass"). when(df.Mark <50,"Fail").otherwise("Absentee")).show()
+
+(3) Spark Jobs
++------+-------+----+--------+----------+
+|  name|Subject|Mark|  Status|attendence|
++------+-------+----+--------+----------+
+|  Raja|Science|  80|    Pass|        90|
+|Rakesh|  Maths|  90|    Pass|        70|
+|  Rama|English|  20|    Fail|        80|
+|Rajesh|Science|  45|    Fail|        75|
+|Ramesh|  Maths|  30|    Fail|        50|
+|Raghav|  Maths|null|Absentee|        70|
++------+-------+----+--------+----------+
+ 
+# Method 2 by using expr function:
+-----------------------------------
+from pyspark.sql.functions import expr 
+tgrx = tgr.withColumn("new_status", expr("CASE WHEN Mark >= 50 THEN 'PASS'"+ "WHEN Mark < 50 THEN 'FAIL'" + "ELSE 'Absence' END")).show()
+
++----+-------+----+--------+----------+----------+
+|name|Subject|Mark|  status|attendence|new_status|
++----+-------+----+--------+----------+----------+
+|   R|Science|  80|    pass|        90|      PASS|
+|  Ra|  Maths|  90|    pass|        70|      PASS|
+| Ram|English|  20|    Fail|        80|      FAIL|
+| Raj|Science|  45|    Fail|        75|      FAIL|
+|Rame|  Maths|  30|    Fail|        50|      FAIL|
+|Ragh|  Maths|null|Absentee|        70|   Absence|
++----+-------+----+--------+----------+----------+
+
+## Multiple Conditons 
+---------------------
+from pyspark.sql.functions import when 
+df4 = tgrx.withColumn("Grade", when((tgrx.Mark >= 80) & (tgrx.attendence >=80), "Distinction") \
+                    .when((tgrx.Mark >=50) & (tgrx.attendence >=50), "Good") \
+                    .otherwise("Average")).show()
+                    
++----+-------+----+--------+----------+----------+-----------+
+|name|Subject|Mark|  status|attendence|new_status|      Grade|
++----+-------+----+--------+----------+----------+-----------+
+|   R|Science|  80|    pass|        90|      PASS|Distinction|
+|  Ra|  Maths|  90|    pass|        70|      PASS|       Good|
+| Ram|English|  20|    Fail|        80|      FAIL|    Average|
+| Raj|Science|  45|    Fail|        75|      FAIL|    Average|
+|Rame|  Maths|  30|    Fail|        50|      FAIL|    Average|
+|Ragh|  Maths|null|Absentee|        70|   Absence|    Average|
++----+-------+----+--------+----------+----------+-----------+
