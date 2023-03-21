@@ -396,4 +396,16 @@ display(df_app)
  |-- Applainces: array (nullable = true)
  |    |-- element: string (containsNull = true)
 
-![plot]("C:\Users\homes\Documents\Hkdp_Details\Git\db1.png")
+#Explode array field #Explode array field 
+-----------------------------------------
+
+from pyspark.sql.functions import explode
+
+df2 = df_app.select(df_app.name, explode(df_app.Applainces))
+
+df_app.printSchema()
+display(df_app)
+
+df2.printSchema()
+display(df2)
+
