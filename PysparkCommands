@@ -630,3 +630,82 @@ display(un_pivot)
 |    ABC|    Q3|   6000|
 |    ABC|    Q4|   1000|
 +-------+------+-------+
+
+# HANDLING CORRUPTED RECORD 
+1. We need to create the schema first
+    -> we have 3 types to handle the corruption  
+         1. Perissive mode 
+         2. DropMalformed Mode 
+         3. FailFast mode 
+         
+Permissive mode: will keep the records and shows the corrupt records 
+        ->df = spark.read.format("csv).option("mode", "PERMISSIVE").option("header", True).schema(schema_name).load("file location")
+        -> display(df)
+        
+DropMalformed mode: this function will ignore the corrupted records 
+         -> df = spark.read.format("csv").option("mode", "DROPMALFORMED").option("header", True).schema(schema_name).load("file_location")
+         -> display(df)
+
+FailFast Mode : this function will not execute in case any corrupt records are found 
+        -> df = spark.read.format("csv").option("mode", "FAILFAST").option("header". True).schema(schema_name).load("file_location")
+        
+# To check the default Parallelism
+----------------------------------
+-> sc.defaultParallelism
+     -> o/p 8 by default 
+     
+# How to check the partition Bytes by default 
+---------------------------------------------
+->spark.conf.get("spark.sql.files.maxPartitionBytes")
+      -> by default 128 MB
+   
+#Getting data with in the spark environment 
+-------------------------------------------
+ from pyspark.sql.types import IntegerType 
+ df = spark.createDataFrame(range(10), IntegerType())
+ df.rdd.getNumPartitions()
+      -> Out[18]: 8
+      
+#HOW TO KNOW THE EXECUTORS HAS BEEN PARTITIONS BY DEFAULT VALUE 
+----------------------------------------------------------------
+df.rdd.glom().collect()
+
+Out[21]: [[Row(value=0)],
+ [Row(value=1)],
+ [Row(value=2)],
+ [Row(value=3), Row(value=4)],
+ [Row(value=5)],
+ [Row(value=6)],
+ [Row(value=7)],
+ [Row(value=8), Row(value=9)]]
+ 
+#HOW TO PARTITION A LARGE FILE WITH EXAMPLE
+-------------------------------------------
+df = spark.read.format("csv").option("Header", True).option("Inferschema", True).load("dbfs:/FileStore/tables/fifa_cleaned.csv")
+#df.rdd.getNumPartitions()
+#df.rdd.glom().collect()
+#spark.conf.get("spark.sql.files.maxPartitionBytes")
+#spark.conf.set("spark.sql.files.maxPartitionBytes", 100)
+
+#REPARTITION:
+-------------
+repartition is used to increase or decreased the values of the parallelism.
+-> df.rdd.getNumPartitions()
+    -> By default the value is 8 
+-> df.rdd.repartition(5)
+    -> Out[7]: 5
+    
+# COALESCE:
+------------
+this function is only used to reduce the partitions 
+ #How to get the partition number ?
+ ----------------------------------
+    -> df.rdd.getNumPartitions()
+            -> By default the value is 8 
+            
+ #How to resize the partition number?
+ ------------------------------------
+    -> df.rdd.repartition(3)
+        -> df.rdd.getNumPartitions()
+             -> Now the value is 3 
+    -> df.rdd.glom().collect()
