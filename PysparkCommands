@@ -689,7 +689,7 @@ df = spark.read.format("csv").option("Header", True).option("Inferschema", True)
 
 #REPARTITION:
 -------------
-repartition is used to increase or decreased the values of the parallelism.
+repartition is used to increase or decreased the values of the parallelism, shuffle the data across the nodes, it produce the evenly distributed parititons.
 -> df.rdd.getNumPartitions()
     -> By default the value is 8 
 -> df.rdd.repartition(5)
@@ -697,7 +697,7 @@ repartition is used to increase or decreased the values of the parallelism.
     
 # COALESCE:
 ------------
-this function is only used to reduce the partitions 
+this function is only used to reduce the partitions, doesnt require shuffling across the data across nodes, would merge partitions with in executors, it produce unevenly distributed partitions.
  #How to get the partition number ?
  ----------------------------------
     -> df.rdd.getNumPartitions()
@@ -709,3 +709,299 @@ this function is only used to reduce the partitions
         -> df.rdd.getNumPartitions()
              -> Now the value is 3 
     -> df.rdd.glom().collect()
+    
+    
+    
+#WHAT IS CACHE AND PERSIST ?
+----------------------------
+its an API provided by spark or spark function through which we can store the data in memory or disk. 
+cache: always common across all the databases and also in spark, when we need to store the data in memory we use the cache option, cache always store the inmemory across the nodes.
+
+Persist: is a programming mechanism which gives an option to store the data either in-memory or in disc across the nodes.
+
+--> They are used as optimization techniques to save interim computation results of data frames or datasets.
+
+#BROADCAST VARIABLE 
+-------------------
+EXAMPLE
+Transaction = [
+			   (100,'Cosmetic',150),
+			   (200,'Apparel',250),
+			   (300,'Shirt',400),
+			   (400,'Trouser',500),
+			   (500,'Socks',20),
+			   (100,'Belt',70),
+			   (200,'Cosmetics',250),
+			   (300,'Shoe',400),
+			   (400,'Socks',25),
+			   (500,'Shorts',100)
+			   ]
+TransactionDF = spark.createDataFrame(data = Transaction, schema = ['Store_id','Item','Amount'])
+
+Store = [ (100,'Store_London'),
+		  (200,'Store_Paris'),
+		  (300,'Store_UAE'),
+		  (400,'Store_Oslo'),
+		  (500,'Store_USA')
+        ]
+storeDF = spark.createDataFrame(data = Store, schema = ['Store_id','store_name'])
+
+
+from pyspark.sql.functions import broadcast 
+broadcast = TransactionDF.join(broadcast(storeDF), TransactionDF['Store_id'] == storeDF['Store_id'])
+display(broadcast)
+
+broadcast.explain(True)
+
+#ADAPTIVE QUERY EXECUTION:
+-------------------------
+# How to enable the adapative query execution ? 
+               -> spark.conf.set("spark.sql.adaptive.enabled", True)
+
+#How to disable the adaptive query execution ? 
+               -> spark.conf.set("spark.sql.adapative.enabled", True)
+               
+# HOW TO DISABLE THE COST BASED OPTIMIZER? 
+------------------------------------------
+    -> spark.conf.set("spark.sql.cbo.enabled", True) -> to on the CBO.
+    -> spark.conf.set("spark.sql.cbo.enabled", False) -> to turn off the CBO.
+    
+#HANDLING THE NULL IN THE FILTERS:
+-----------------------------------
+1. isNull() : 
+        -> The function isNull() returns all the rows where certain column on which we apply this function contain Null values. 
+    
+command : 
+        df.filter (df.column_name, isNull())
+      
+example:
+-------
+data_student = [("Michael", "Science", 80, "P", 90),
+                ("Nancy", "Mathematics", 90, "p", None), 
+                ("David", "English", 20, "F", 80),
+                ("'John", "Science", None, "F", None), 
+                ("_lessy" ,None, 30, "F", 50),
+                ("Martin", "Mathematics", None, None, 70)]
+Schema = ["name", "Subject", "Mark", "Status", "Attendance"]
+df = spark.createDataFrame(data = data_student, schema = Schema).show()
+#display (df)
+
++-------+-----------+----+------+----------+
+|   name|    Subject|Mark|Status|Attendance|
++-------+-----------+----+------+----------+
+|Michael|    Science|  80|     P|        90|
+|  Nancy|Mathematics|  90|     p|      null|
+|  David|    English|  20|     F|        80|
+|  'John|    Science|null|     F|      null|
+| _lessy|       null|  30|     F|        50|
+| Martin|Mathematics|null|  null|        70|
++-------+-----------+----+------+----------+
+
+#command:
+---------
+null = df.filter(df.Mark.isNull()).show()
+
+o/p:
++------+-----------+----+------+----------+
+|  name|    Subject|Mark|Status|Attendance|
++------+-----------+----+------+----------+
+| 'John|    Science|null|     F|      null|
+|Martin|Mathematics|null|  null|        70|
++------+-----------+----+------+----------+
+
+=================================================================================================================================       
+2. isNotNull() : 
+        -> This function is opposite to isNull(), creates new dataframe by eliminating all the rows where certain column on which we     apply this function contains Null values.
+        
+command: 
+        df.filter (df.column_name, isNotNull()) 
+        
+Examples :
+---------
+data_student = [("Michael", "Science", 80, "P", 90),
+                ("Nancy", "Mathematics", 90, "p", None), 
+                ("David", "English", 20, "F", 80),
+                ("'John", "Science", None, "F", None), 
+                ("_lessy" ,None, 30, "F", 50),
+                ("Martin", "Mathematics", None, None, 70)]
+Schema = ["name", "Subject", "Mark", "Status", "Attendance"]
+df = spark.createDataFrame(data = data_student, schema = Schema).show()
+#display (df)
+
+notnull = df.filter(df.Mark.isNotNull()).show()
+# o/p :
++-------+-----------+----+------+----------+
+|   name|    Subject|Mark|Status|Attendance|
++-------+-----------+----+------+----------+
+|Michael|    Science|  80|     P|        90|
+|  Nancy|Mathematics|  90|     p|      null|
+|  David|    English|  20|     F|        80|
+| _lessy|       null|  30|     F|        50|
++-------+-----------+----+------+----------+
+
+#COMBINING TWO COLUMNS WITH IS NOTNULL TO GET THE RESULTS:
+----------------------------------------------------------
+display = df.filter((df.Mark.isNotNull()) & (df.Attendence.isNotNull()))
+
+O/p: 
+--- 
++-------+-------+----+------+----------+
+|   name|Subject|Mark|Status|Attendance|
++-------+-------+----+------+----------+
+|Michael|Science|  80|     P|        90|
+|  David|English|  20|     F|        80|
+| _lessy|   null|  30|     F|        50|
++-------+-------+----+------+----------+
+
+# COMBINING TWO COLUMNS WITH ISNOTNULL with OR Condition :
+----------------------------------------------------------
+Orcondition  = df.filter((df.Mark.isNotNull()) | (df.Attendance.isNotNull())).show()
+
+o/p: 
+----
++-------+-----------+----+------+----------+
+|   name|    Subject|Mark|Status|Attendance|
++-------+-----------+----+------+----------+
+|Michael|    Science|  80|     P|        90|
+|  Nancy|Mathematics|  90|     p|      null|
+|  David|    English|  20|     F|        80|
+| _lessy|       null|  30|     F|        50|
+| Martin|Mathematics|null|  null|        70|
++-------+-----------+----+------+----------+
+
+#DROP FUNCTION :
+----------------
+Drop function is used to drop the null values in the data, we have all, any, subset options in the Drop function, by default any is the default option 
+
+any :  --. this will drop all the Null values.
+    df.dropna("any")
+all : --. this will drop the null values only all the values in the row are null.
+    df.dropna("all")
+subset : --. this is used to mention the columns, we can mention more number of columns in a subset.
+    df.dropna(subset = ["Column_name","Column2_name"]
+    
+
+#FILL FUNCTION:
+---------------
+This function is used to fill the values in the Null, this condition will be applied only to the integer values not for the string values.
+
+-> df.fillna(value =0)
++-------+-----------+----+------+----------+
+|  'name|    Subject|Mark|Status|Attendance|
++-------+-----------+----+------+----------+
+|Michael|    Science|  80|     P|        90|
+|  Nancy|Mathematics|  90|     P|         0|
+|  David|    English|  20|     F|        80|
+|   John|    Science|   0|     F|         0|
+| Martin|Mathematics|   0|  null|        70|
+|   null|       null|   0|  null|         0|
++-------+-----------+----+------+----------+
+
+#HOW TO APPLY THE FILL FUNCTION TO THE STRING VALUES WHERE NULL IS FOUND?
+------------------------------------------------------------------------
+df.fillna(value = "NA") ---> this will replace the last row with NA only for the STRING values.
+
++-------+-----------+----+------+----------+
+|  'name|    Subject|Mark|Status|Attendance|
++-------+-----------+----+------+----------+
+|Michael|    Science|  80|     P|        90|
+|  Nancy|Mathematics|  90|     P|      null|
+|  David|    English|  20|     F|        80|
+|   John|    Science|null|     F|      null|
+| Martin|Mathematics|null|    NA|        70|
+|     NA|         NA|null|    NA|      null|
++-------+-----------+----+------+----------+
+
+#HOW TO APPLY THE FILL FUNCTION USING SUBSET ?
+----------------------------------------------
+df.fillna(values = 0, subset = ["Mark", "Attendence"]
+
+o/p :
++-------+-----------+----+------+----------+
+|  'name|    Subject|Mark|Status|Attendance|
++-------+-----------+----+------+----------+
+|Michael|    Science|  80|     P|        90|
+|  Nancy|Mathematics|  90|     P|         0|
+|  David|    English|  20|     F|        80|
+|   John|    Science|   0|     F|         0|
+| Martin|Mathematics|   0|  null|        70|
+|   null|       null|   0|  null|         0|
++-------+-----------+----+------+----------+
+
+#HOW TO FILL THE VALUES TO EACH COLUMN MANUALLY ? 
+-------------------------------------------------
+df.fillna({"Mark" : 0, "Status": "NA", "name":"no_name})
+
+o/p:
++-------+-----------+----+------+----------+
+|  'name|    Subject|Mark|Status|Attendance|
++-------+-----------+----+------+----------+
+|Michael|    Science|  80|     P|        90|
+|  Nancy|Mathematics|  90|     P|      null|
+|  David|    English|  20|     F|        80|
+|   John|    Science|   0|     F|      null|
+| Martin|Mathematics|   0|    na|        70|
+|no_name|       null|   0|    na|      null|
++-------+-----------+----+------+----------+
+
+# UDF(USER DEFINED FUNCTIONS):
+------------------------------
+EXAMPLE :
+---------
+employee_data = [ (10, "Michael Robinson", "1999-06-01", "100", 2000),
+                  (20, "James Wood", "2003-03-01", "200", 8000), 
+                  (30, "Chris Andrews", "2005-04-01", "100", 6000), 
+                  (40, "Mark Bond", "2008-10-01", "100", 7000), 
+                  (50, "Steve Watson", "1996-02-01", "400", 1000), 
+                  (60, "Mathews Simon", "1998-11-01", "500", 5000), 
+                  (70, "Peter Paul", "2011-04-01", "600", 5000) 
+                ]
+employee_schema = ["employee_id", "Name", "doj", "employee_dept_id", "salary"]
+empDF = spark. createDataFrame (data=employee_data, schema = employee_schema)
+display (empDF)
+
+FUNCTION CREATION:
+-----------------
+import pyspark.sql.functions as f 
+def rename_columns(rename_df):
+    for column in rename_df.columns:
+        new_column ="col_"+column
+        rename_df = rename_df.withColumnRenamed(column, new_column)
+    return rename_df
+    
+renamed_df = rename_columns(empDF)
+display(renamed_df)
+
++---------------+----------------+----------+--------------------+----------+
+|col_employee_id|        col_Name|   col_doj|col_employee_dept_id|col_salary|
++---------------+----------------+----------+--------------------+----------+
+|             10|Michael Robinson|1999-06-01|                 100|      2000|
+|             20|      James Wood|2003-03-01|                 200|      8000|
+|             30|   Chris Andrews|2005-04-01|                 100|      6000|
+|             40|       Mark Bond|2008-10-01|                 100|      7000|
+|             50|    Steve Watson|1996-02-01|                 400|      1000|
+|             60|   Mathews Simon|1998-11-01|                 500|      5000|
+|             70|      Peter Paul|2011-04-01|                 600|      5000|
++---------------+----------------+----------+--------------------+----------+
+
+EXAMPLE2 : UPPER CASE FUNCTION 
+------------------------------
+from pyspark.sql.functions import upper,col 
+def upperCase_col(df):
+    empDF_upper = df.withColumn('name_upper', upper(df.Name))
+    return empDF_upper
+    
+Up_Case_DF = upperCase_col(empDF)
+display(Up_Case_DF)
+
++-----------+----------------+----------+----------------+------+----------------+
+|employee_id|            Name|       doj|employee_dept_id|salary|      name_upper|
++-----------+----------------+----------+----------------+------+----------------+
+|         10|Michael Robinson|1999-06-01|             100|  2000|MICHAEL ROBINSON|
+|         20|      James Wood|2003-03-01|             200|  8000|      JAMES WOOD|
+|         30|   Chris Andrews|2005-04-01|             100|  6000|   CHRIS ANDREWS|
+|         40|       Mark Bond|2008-10-01|             100|  7000|       MARK BOND|
+|         50|    Steve Watson|1996-02-01|             400|  1000|    STEVE WATSON|
+|         60|   Mathews Simon|1998-11-01|             500|  5000|   MATHEWS SIMON|
+|         70|      Peter Paul|2011-04-01|             600|  5000|      PETER PAUL|
++-----------+----------------+----------+----------------+------+----------------+
