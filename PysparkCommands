@@ -1005,3 +1005,200 @@ display(Up_Case_DF)
 |         60|   Mathews Simon|1998-11-01|             500|  5000|   MATHEWS SIMON|
 |         70|      Peter Paul|2011-04-01|             600|  5000|      PETER PAUL|
 +-----------+----------------+----------+----------------+------+----------------+
+
+#COMPRESSION:
+------------
+SNAPPY:
+--------
+snappy_compression = df1.write.format("parquet").option("compression", "snappy").save("dbfs:/FileStore/tables/compression")
+
+GZIP:
+-----'
+gzip_compression = df1.write.format("parquet").option("compression", "gzip").save(""dbfs:/FileStore/tables/compression/gzip")
+
+#SPLIT FUNCTION
+---------------
+example for space 
+-------------------
+employee_data = [ (10, "Michael Robinson", "1999-06-01", "100", 2000),
+                  (20, "James Wood", "2003-03-01", "200", 8000), 
+                  (30, "Chris Andrews", "2005-04-01", "100", 6000), 
+                  (40, "Mark Bond", "2008-10-01", "100", 7000), 
+                  (50, "Steve Watson", "1996-02-01", "400", 1000), 
+                  (60, "Mathews Simon", "1998-11-01", "500", 5000), 
+                  (70, "Peter Paul", "2011-04-01", "600", 5000) 
+                ]
+employee_schema = ["employee_id", "Name", "doj", "employee_dept_id", "salary"]
+employeedetails = spark. createDataFrame (data=employee_data, schema = employee_schema)
+display (employeedetails)
+
+from pyspark.sql.functions import split
+split_function_for_space = employee.withColumn('First_Name', split(employeedetails['Name'], ' ').getItem(0) /
+                                   .withColumn('Last_Name', split(employeedetails['Name'], ' ').getItem(1))
+display(split_function_for_space)
+
++-----------+----------------+----------+----------------+------+---------+--------+
+|employee_id|            Name|       doj|employee_dept_id|salary|FirstName|LastName|
++-----------+----------------+----------+----------------+------+---------+--------+
+|         10|Michael Robinson|1999-06-01|             100|  2000|  Michael|Robinson|
+|         20|      James Wood|2003-03-01|             200|  8000|    James|    Wood|
+|         30|   Chris Andrews|2005-04-01|             100|  6000|    Chris| Andrews|
+|         40|       Mark Bond|2008-10-01|             100|  7000|     Mark|    Bond|
+|         50|    Steve Watson|1996-02-01|             400|  1000|    Steve|  Watson|
+|         60|   Mathews Simon|1998-11-01|             500|  5000|  Mathews|   Simon|
+|         70|      Peter Paul|2011-04-01|             600|  5000|    Peter|    Paul|
++-----------+----------------+----------+----------------+------+---------+--------+
+
+example for Hyphen:
+-------------------
+employee_data = [ (10, "Michael Robinson", "1999-06-01", "100", 2000),
+                  (20, "James Wood", "2003-03-01", "200", 8000), 
+                  (30, "Chris Andrews", "2005-04-01", "100", 6000), 
+                  (40, "Mark Bond", "2008-10-01", "100", 7000), 
+                  (50, "Steve Watson", "1996-02-01", "400", 1000), 
+                  (60, "Mathews Simon", "1998-11-01", "500", 5000), 
+                  (70, "Peter Paul", "2011-04-01", "600", 5000) 
+                ]
+employee_schema = ["employee_id", "Name", "doj", "employee_dept_id", "salary"]
+employeedetails = spark. createDataFrame (data=employee_data, schema = employee_schema)
+display (employeedetails)
+
+here we will be applying the split function to DOJ 
+
+from pyspark.sql.functions import split
+split_function_for_Hyphen = employeedetails.withColumn('Year', split(employeedetails['doj'], ' - ').getItem(0)) \
+                                          .withColumn('Month', split(employeedetails['doj'], ' - ').getItem(1)) \
+                                          .withColumn('Date', split(employeedetails['doj'], ' - ').getItem(2))
+display(split_function_for_Hyphen)
+
+
+#ARRAY_ZIP
+-----------
+EXAMPLE:
+--------
+array_data = [
+                ("John", 4, 1), 
+                ("John", 6, 2), 
+                ("David", 7, 3), 
+                ("Mike", 3, 4), 
+                ("David", 5, 2), 
+                ("John", 7, 3), 
+                ("John", 9, 7),                         
+                ("David", 1, 8), 
+                ("David", 4, 9), 
+                ("David", 7, 4), 
+                ("Mike", 8, 5) , 
+                ("Mike", 5, 2), 
+                ("Mike", 3, 8), 
+                ("John", 2, 7),
+                ("David", 1, 9)
+              ]
+array_schema = ["Name","Score_1", "Score_2"]
+arraydf = spark. createDataFrame(data=array_data, schema = array_schema)
+display(arraydf)
+
+
++-----+-------+-------+
+| Name|Score_1|Score_2|
++-----+-------+-------+
+| John|      4|      1|
+| John|      6|      2|
+|David|      7|      3|
+| Mike|      3|      4|
+|David|      5|      2|
+| John|      7|      3|
+| John|      9|      7|
+|David|      1|      8|
+|David|      4|      9|
+|David|      7|      4|
+| Mike|      8|      5|
+| Mike|      5|      2|
+| Mike|      3|      8|
+| John|      2|      7|
+|David|      1|      9|
++-----+-------+-------+
+
+we need to aggregrate the above data using the NAMES 
+
+from pyspark.sql import functions as F 
+
+aggregating = arraydf.groupby("Name").agg(F.collect_list("Score_1").alias("Array_Score_1"), F.collect_list("Score_2).alias("Array_Score_2))
+display(aggregating)
+
++-----+------------------+------------------+
+| Name|     Arrya_Score_1|           Score_2|
++-----+------------------+------------------+
+| John|   [4, 6, 7, 9, 2]|   [1, 2, 3, 7, 7]|
+|David|[7, 5, 1, 4, 7, 1]|[3, 2, 8, 9, 4, 9]|
+| Mike|      [3, 8, 5, 3]|      [4, 5, 2, 8]|
++-----+------------------+------------------+
+
+Now we will combine the values column1 values with column2 values 
+
+
+arrays_zip = aggregating.withColumn("Zipped_new_values", F.arrays_zip("Arrya_Score_1", "Score_2").show()
+
++-----+------------------+------------------+------------------------------------------------+
+|Name |Arrya_Score_1     |Score_2           |New_zipped_values                               |
++-----+------------------+------------------+------------------------------------------------+
+|John |[4, 6, 7, 9, 2]   |[1, 2, 3, 7, 7]   |[{4, 1}, {6, 2}, {7, 3}, {9, 7}, {2, 7}]        |
+|David|[7, 5, 1, 4, 7, 1]|[3, 2, 8, 9, 4, 9]|[{7, 3}, {5, 2}, {1, 8}, {4, 9}, {7, 4}, {1, 9}]|
+|Mike |[3, 8, 5, 3]      |[4, 5, 2, 8]      |[{3, 4}, {8, 5}, {5, 2}, {3, 8}]                |
++-----+------------------+------------------+------------------------------------------------+
+
+#HOW TO FLATTEN THE JSON FILE 
+-------------------------------
+Example:
+--------
+empDF = [('Sales_dept' ,[{'emp_name': 'John', 'salary': '1000', 'yrs_of_service': '10', 'Age': '33'},
+                         {'emp_name': 'David', 'salary': '2000', 'yrs_of_service': '15', 'Age': '40'},
+                         {'emp_name': 'Nancy', 'salary': '8000', 'yrs_of_service': '20', 'Age': '45'},
+                         {'emp_name': 'Mike', 'salary': '3000', 'yrs_of_service': '6', 'Age': '30'}, 
+                         {'emp_name': 'Rosy', 'salary': '6000', 'yrs_of_service': '8', 'Age': '32'}]),
+        ('HR_dept', [{'emp_name': 'Edwin', 'salary': '6000', 'yrs_of_service': '8', 'Age': '31'},
+                        {'emp_name': 'Tomas', 'salary': '3000', 'yrs_of_service': '4', 'Age': '26'},
+                        {'emp_name': 'Sarah', 'salary': '12000', 'yrs_of_service': '22', 'Age': '49'}, 
+                        {'emp_name': 'Stella', 'salary': '15000', 'yrs_of_service': '25', 'Age': '52'}, 
+                        {'emp_name': 'Kevin', 'salary': '4000', 'yrs_of_service': '5', 'Age': '27'}])
+]
+df_b = spark.createDataFrame (data=empDF, schema = ['Department', 'Employee'])
+df_b.printSchema ()
+display (df_b)
+
+next we need to use arrays_zip function 
+---------------------------------------
+from pyspark.sql import functions as F 
+
+array = df_b.withColumn("ARRAY", F.arrays_zip(df_b['Employee']))
+display(array)
+
+after the arrays_zip function, we need to use the explode function 
+------------------------------------------------------------------
+explode = array.withColumn("explode", F.explode(array['ARRAY']))
+display(explode)
+
+again we need to use the explode function to extract the value and drop the previous values in the table
+-------------------------------------------------------------------------------------------------------
+explode_all = explode.withColumn("Employee_name", explode['explode.Employee.emp_name']) \
+                     .withColumn("yrs_of_service", explode['explode.Employee.yrs_of_service']) \
+                     .withColumn("salary", explode['explode.Employee.salary']) \
+                     .withColumn("Age", explode['explode.Employee.Age']) \
+                     .drop("explode","Employee","ARRAY")
+display(explode_all)
+
+after tranformtions we get the o/p as below 
+--------------------------------------------
++----------+-------------+--------------+------+---+
+|Department|Employee_name|yrs_of_service|salary|Age|
++----------+-------------+--------------+------+---+
+|Sales_dept|         John|            10|  1000| 33|
+|Sales_dept|        David|            15|  2000| 40|
+|Sales_dept|        Nancy|            20|  8000| 45|
+|Sales_dept|         Mike|             6|  3000| 30|
+|Sales_dept|         Rosy|             8|  6000| 32|
+|   HR_dept|        Edwin|             8|  6000| 31|
+|   HR_dept|        Tomas|             4|  3000| 26|
+|   HR_dept|        Sarah|            22| 12000| 49|
+|   HR_dept|       Stella|            25| 15000| 52|
+|   HR_dept|        Kevin|             5|  4000| 27|
++----------+-------------+--------------+------+---+
