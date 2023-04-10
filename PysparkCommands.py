@@ -1288,3 +1288,221 @@ sort_array = df.withColumn("newSort", F.array_sort(df["Array_1"])).show()
 |David|[7, 5, 1, 4, 7, 1]|[1, 1, 4, 5, 7, 7]|
 | Mike|   [3, 9, 1, 6, 2]|   [1, 2, 3, 6, 9]|
 +-----+------------------+------------------+
+
+#PARTITIONBY
+------------
+#PARTITIONBY 
+df1 = df.write.option("Header", True).mode("overwrite").partitionBy("contract_end_year").csv('dbfs:/FileStore/tables/partitonby')
+display(df1)
+
+Partitionby two columns 
+-------------------------
+x = df.write.option("header", True) \
+      .mode("overwrite")
+      .partitonby("contract_end_year", "national_team") \
+      .csv('dbfs:/FileStore/tables/partitonby')
+      
+Partitionby number of records
+-------------------------------
+x = df.write.option("header", True) \
+      .option("maxRecordsPerFile", 2000) \
+      .mode("overwrite")
+      .partitionby("contract_end_year") \
+      .csv("dbfs:/FileStore/tables/partitonby")
+
+in the data if the year contains more than 5000 records, it will create one partition, when maxRecorsPerFile is mentioned then it will create more partitions in which each file with 2000 records, so totally we will have 3 parttions for 5000 records data.
+
+## ** HOW TO FIND NUMBER OF RECORDS TO EACH PARTITON **
+------------------------------------------------------- 
+1. first we need to read the file 
+----------------------------------
+df = spark.read.format("csv").option("Header", True).load('dbfs:/FileStore/tables/fifa_cleaned.csv')
+display(df)
+
+2. know the number of partitions 
+--------------------------------
+display(df.rdd.getNumPartitions()) 
+ -> for the above file the number of partitions is only 2 
+ 
+3. Now find the partitons count
+-------------------------------
+
+from pyspark.sql.functions import spark_partition_id
+
+v = df.withColumn("partitions_id", spark_partition_id()).groupby(partitions_id).count()
+
+o/p 
++-----------+-----+
+|partitionId|count|
++-----------+-----+
+|          0|11818|
+|          1| 6136|
++-----------+-----+
+
+4. how to repartition the number of partitions from default
+------------------------------------------------------------
+v = df.select(df.id,df.age,df.nationality,df.club_team,df.body_type).repartition(6)
+
+5. know the number of partitions
+--------------------------------
+display(v.rdd.getNumPartitions())
+
+6. now find the partition count()
+---------------------------------
+from pyspark.sql.functions import spark_partition_id 
+
+f = v.withColumn("new_partition_id", spark_partition_id()).groupBy("new_partition_id").count()
+
+# Null Count of Each Column in Dataframe
+----------------------------------------
+
+
+
+# Pyspark: Find Top or Bottom N Rows per Group
+----------------------------------------------
+data_student = [("Michael", "Physics", 80, "P", 90),
+                ("Michael", "Chemistry", 67, "P",90),
+                ("Michael", "Mathematics", 78, "P",90),
+                ("Nancy", "Physics", 30, "F" ,80), 
+                ("Nancy", "Chemistry", 59, "p", 80),
+                ("Nancy", "Mathematics", 75, "p" ,80),
+                ("David", "Physics" ,90,"p",76),
+                ("David", "Chemistry", 87, "p", 70),
+                ("David", "Mathematics" ,97, "p" ,70),
+                ("John", "Physics" ,33, "F",60),
+                ("John", "Chemistry", 28, "F", 60), 
+                ("John", "Mathematics", 52, "P", 50), 
+                ("Blessy", "Physics" ,89,"p", 75) ,
+                ("Blessy", "Chemistry", 76, "P", 75),
+                ("Blessy","Mathematics", 63, "p", 75)]
+Schema = ["name", "Subject", "Mark", "Status", "Attendance"]
+df = spark.createDataFrame (data = data_student, schema = Schema)
+display(df)
+
++-------+-----------+----+------+----------+
+|   name|    Subject|Mark|Status|Attendance|
++-------+-----------+----+------+----------+
+|Michael|    Physics|  80|     P|        90|
+|Michael|  Chemistry|  67|     P|        90|
+|Michael|Mathematics|  78|     P|        90|
+|  Nancy|    Physics|  30|     F|        80|
+|  Nancy|  Chemistry|  59|     p|        80|
+|  Nancy|Mathematics|  75|     p|        80|
+|  David|    Physics|  90|     p|        76|
+|  David|  Chemistry|  87|     p|        70|
+|  David|Mathematics|  97|     p|        70|
+|   John|    Physics|  33|     F|        60|
+|   John|  Chemistry|  28|     F|        60|
+|   John|Mathematics|  52|     P|        50|
+| Blessy|    Physics|  89|     p|        75|
+| Blessy|  Chemistry|  76|     P|        75|
+| Blessy|Mathematics|  63|     p|        75|
+
+
+from pyspark.sql.window import Window 
+from pyspark.sql.function import col, row_number
+
+windows = Window.partitionBy("name").orderBy(col('Mark').desc())
+result = df1.withColumn('row',row_number().over(windows).orderBy("name","row")
+display(result)
++-------+-----------+----+------+----------+---+
+|   name|    Subject|Mark|Status|Attendance|row|
++-------+-----------+----+------+----------+---+
+| Blessy|    Physics|  89|     p|        75|  1|
+| Blessy|  Chemistry|  76|     P|        75|  2|
+| Blessy|Mathematics|  63|     p|        75|  3|
+|  David|Mathematics|  97|     p|        70|  1|
+|  David|    Physics|  90|     p|        76|  2|
+|  David|  Chemistry|  87|     p|        70|  3|
+|   John|Mathematics|  52|     P|        50|  1|
+|   John|    Physics|  33|     F|        60|  2|
+|   John|  Chemistry|  28|     F|        60|  3|
+|Michael|    Physics|  80|     P|        90|  1|
+|Michael|Mathematics|  78|     P|        90|  2|
+|Michael|  Chemistry|  67|     P|        90|  3|
+|  Nancy|Mathematics|  75|     p|        80|  1|
+|  Nancy|  Chemistry|  59|     p|        80|  2|
+|  Nancy|    Physics|  30|     F|        80|  3|
++-------+-----------+----+------+----------+---+
+
+df1 = result.filter(col('row') =>1)
+
++-------+-----------+----+------+----------+---+
+|   name|    Subject|Mark|Status|Attendance|row|
++-------+-----------+----+------+----------+---+
+| Blessy|    Physics|  89|     p|        75|  1|
+|  David|Mathematics|  97|     p|        70|  1|
+|   John|Mathematics|  52|     P|        50|  1|
+|Michael|    Physics|  80|     P|        90|  1|
+|  Nancy|Mathematics|  75|     p|        80|  1|
++-------+-----------+----+------+----------+---+
+
+#Greatest vs Least vs Max vs Min
+----------------------------------
+input_data = [("David", 70,68,89,40,84),
+              ("Kevin", 90,67,87,79,74),
+              ("Natalia", 66,88,49,65,72) , 
+              ("Roger", 78,73,82,89,67),
+              ("Michael", 80, 86,69, 78,92)]
+schema = ["Student", "Subject_1", "Subject_2", "Subject_3", "Subject_4", "Subject_5"]
+df = spark.createDataFrame( input_data, schema)
+df.display ()
+
+#Max Value:
+-----------
+df.agg({"Subject_1":"max", "Subject_2":"max","Subject_3":"max"}).show()
+
++--------------+--------------+--------------+
+|max(Subject_2)|max(Subject_1)|max(Subject_3)|
++--------------+--------------+--------------+
+|            88|            90|            89|
++--------------+--------------+--------------+
+
+#Min Value:
+-----------
+df.agg({"Subject_1":"min", "Subject_2":"min","Subject_3":"min"}).show()
++--------------+--------------+--------------+
+|min(Subject_2)|min(Subject_1)|min(Subject_3)|
++--------------+--------------+--------------+
+|            67|            66|            49|
++--------------+--------------+--------------+
+
+#DELTA TABLE CREATION 
+-----------------------
+#  Creating the delta table 
+
+from delta.tables import *
+DeltaTable.create(spark) \
+    .tableName("employee_demo") \
+    .addColumn("emp_id",'INT') \
+    .addColumn("emp_name",'STRING') \
+    .addColumn("gender",'STRING') \
+    .addColumn("salary",'INT') \
+    .addColumn("Dept",'STRING') \
+    .property("description","This is just a demo table") \
+    .location("dbfs:/FileStore/CreateTable") \
+    .execute()
+    
+from delta.tables import *
+DeltaTable.createIfNotExists(spark) \
+    .tableName("employee_demo") \
+    .addColumn("emp_id",'INT') \
+    .addColumn("emp_name",'STRING') \
+    .addColumn("gender",'STRING') \
+    .addColumn("salary",'INT') \
+    .addColumn("Dept",'STRING') \
+    .property("description","This is just a demo table") \
+    .location("dbfs:/FileStore/CreateTable") \
+    .execute()
+    
+from delta.tables import *
+DeltaTable.createOrReplace(spark) \
+    .tableName("employee_emo") \
+    .addColumn("emp_id",'INT') \
+    .addColumn("emp_name",'STRING') \
+    .addColumn("gender",'STRING') \
+    .addColumn("salary",'INT') \
+    .addColumn("Dept",'STRING') \
+    .property("description","This is just a demo table") \
+    .location("dbfs:/FileStore/CreateTable") \
+    .execute()
