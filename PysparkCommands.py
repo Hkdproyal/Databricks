@@ -1506,3 +1506,356 @@ DeltaTable.createOrReplace(spark) \
     .property("description","This is just a demo table") \
     .location("dbfs:/FileStore/CreateTable") \
     .execute()
+    
+#DELTA SCHEMA MERGE 
+--------------------
+EXAMPLE: 
+-------
+from delta.tables import *
+DeltaTable.create(spark) \
+ .tableName("employee_demo") \
+ .addColumn("emp_id","INT") \
+ .addColumn("emp_name","STRING") \
+ .addColumn("gender","STRING") \
+ .addColumn("salary","INT") \
+ .addColumn("Dept","STRING") \
+ .property("description","table created for demo") \
+ .location("/FileStore/tables/delta/path_employee_demo") \
+ .execute()
+ 
+ %sql
+insert into employee_demo values(100,"Micheal","M",5000,"Sales")
+
+%sql
+select * from employee_demo;
+
+from pyspark.sql.types import IntegerType, StringType
+employee_data = [(200,"Philips","M",6000,"Marketing","additional")]
+employee_schema =StructType([ \
+ StructField("emp_id",IntegerType(), False),\
+ StructField("emp_name",StringType(), True), \
+ StructField("gender",StringType(), True), \
+ StructField("salary",IntegerType(), True), \
+ StructField("Dept",StringType(), True), \
+ StructField("additionalColumn",StringType(), True) ])
+
+-> df = spark.createDataFrame(data=employee_data, schema =employee_schema)
+display(df)
+
+-> df.write.format("delta").mode("append").saveAsTable("employee_data") ---> This Command will fail to merge the schema with additional column 
+
+-> df.write.option("mergeSchema", True).format("delta").mode("append").saveAsTable("employee_data")
+
+#DATAFRAME INSERT INTO DELTA TABLE 
+----------------------------------
+
+df.write.option("mergeSchema", True).format("delta").mode("append").saveAsTable("employee_demo")
+
+#LEAD and LAG
+--------------
+example:
+-------
+simpleData = (("James", "Sales", 3000), \
+              ("Micheal", "Sales", 4600), \
+              ("Robert", "sales", 4100), \
+              ("James","Sales",3000),\
+              ("Saif","Sales", 4100), \
+              ("Maria","Finanace", 3000), \
+              ("Scott", "Finanace", 3300), \
+              ("Jen","Finanace", 3900), \
+              ("Jeff","Marketing",3000), \
+              ("Kumar", "Marketing", 2000))
+Columns = ["employee_name","department","salary"]
+df = spark.createDataFrame(data =simpleData, schema = Columns)
+
+df.show()
+
++-------------+----------+------+
+|employee_name|department|salary|
++-------------+----------+------+
+|        James|     Sales|  3000|
+|      Micheal|     Sales|  4600|
+|       Robert|     sales|  4100|
+|        James|     Sales|  3000|
+|         Saif|     Sales|  4100|
+|        Maria|  Finanace|  3000|
+|        Scott|  Finanace|  3300|
+|          Jen|  Finanace|  3900|
+|         Jeff| Marketing|  3000|
+|        Kumar| Marketing|  2000|
++-------------+----------+------+
+
+from pyspark.sql.window import Window 
+from pyspark.sql.functions import row_number 
+
+windowsSpec = Window.partitionBy("department").orderBy("salary")
+
+lag:
+-----
+from pyspark.sql.functions import lag 
+df.withColumn("lag", lag("salary",1).over(windowsSpec)) \
+    .show()
+    
++-------------+----------+------+----+
+|employee_name|department|salary| lag|
++-------------+----------+------+----+
+|        Maria|  Finanace|  3000|null|
+|        Scott|  Finanace|  3300|3000|
+|          Jen|  Finanace|  3900|3300|
+|        Kumar| Marketing|  2000|null|
+|         Jeff| Marketing|  3000|2000|
+|        James|     Sales|  3000|null|
+|        James|     Sales|  3000|3000|
+|         Saif|     Sales|  4100|3000|
+|      Micheal|     Sales|  4600|4100|
+|       Robert|     sales|  4100|null|
++-------------+----------+------+----+
+
+from pyspark.sql.functions import lead 
+df.withColumn("Lead",lead("salary",1).over(windowsSpec)).show()
+
++-------------+----------+------+----+
+|employee_name|department|salary|Lead|
++-------------+----------+------+----+
+|        Maria|  Finanace|  3000|3300|
+|        Scott|  Finanace|  3300|3900|
+|          Jen|  Finanace|  3900|null|
+|        Kumar| Marketing|  2000|3000|
+|         Jeff| Marketing|  3000|null|
+|        James|     Sales|  3000|3000|
+|        James|     Sales|  3000|4100|
+|         Saif|     Sales|  4100|4600|
+|      Micheal|     Sales|  4600|null|
+|       Robert|     sales|  4100|null|
++-------------+----------+------+----+
+
+
+#MaxOver() Get Max Value of Duplicate Data - MaxOver Window Function
+--------------------------------------------------------------------
+simpleData = ( (100, "Mobile", 5000, 10), \
+               (100, "Mobile", 7000, 7), \
+               (200, "Laptop", 20000, 4), \
+               (200, "Laptop", 25000,8), \
+               (200, "Laptop", 22000, 12))
+                                                                      
+from pyspark.sql.types import StructType, StructField, StringType, IntegerType
+defSchema = StructType ([\
+              StructField("Product_id", IntegerType (), False), \
+              StructField("Product_name",StringType () ,True), \
+              StructField("Price", IntegerType () , True), \
+              StructField("DiscountPercent", IntegerType () , True)
+               ])
+df = spark. createDataFrame (data = simpleData, schema = defSchema).show()
+display (df)
+
++----------+------------+-----+---------------+
+|Product_id|Product_name|Price|DiscountPercent|
++----------+------------+-----+---------------+
+|       100|      Mobile| 5000|             10|
+|       100|      Mobile| 7000|              7|
+|       200|      Laptop|20000|              4|
+|       200|      Laptop|25000|              8|
+|       200|      Laptop|22000|             12|
++----------+------------+-----+---------------+
+
+#STEP1 : here we will be creating a partitionby Product id and find the max values in the columns
+--------------------------------------------------------------------------------------------------
+from pyspark.sql import Window 
+from pyspark.sql.functions import max, col 
+
+WindowSpec = Window.partitionBy("Product_id")
+
+dfMax = (df.withColumn("MaxPrice",max("Price").over(WindowSpec).withColumn("MaxDiscountPrice",max("DiscountPercent").over(WindowSpec)))
+display(dfMax)
+
++----------+------------+-----+---------------+--------+------------------+
+|Product_id|Product_name|Price|DiscountPercent|maxPrice|maxDiscountpercent|
++----------+------------+-----+---------------+--------+------------------+
+|       100|      Mobile| 5000|             10|    7000|                10|
+|       100|      Mobile| 7000|              7|    7000|                10|
+|       200|      Laptop|20000|              4|   25000|                12|
+|       200|      Laptop|25000|              8|   25000|                12|
+|       200|      Laptop|22000|             12|   25000|                12|
++----------+------------+-----+---------------+--------+------------------+
+
+#STEP2: here we will remove the original columns and replace with the max value column
+-------------------------------------------------------------------------------------- 
+dfSel = dfMax.select(col("Product_id"),col("Product_name"),col("maxPrice").alias("Price"),col("maxDiscountpercent").alias("DiscountPercent")
+display(dfSel)
+
++----------+------------+-----+---------------+
+|Product_id|Product_name|Price|DiscountPercent|
++----------+------------+-----+---------------+
+|       100|      Mobile| 7000|             10|
+|       100|      Mobile| 7000|             10|
+|       200|      Laptop|25000|             12|
+|       200|      Laptop|25000|             12|
+|       200|      Laptop|25000|             12|
++----------+------------+-----+---------------+
+
+#STEP3:
+remove_duplicate = dfSel.remove_duplicates()
+display(remove_duplicate)
+
++----------+------------+-----+---------------+
+|Product_id|Product_name|Price|DiscountPercent|
++----------+------------+-----+---------------+
+|       100|      Mobile| 7000|             10|
+|       200|      Laptop|25000|             12|
++----------+------------+-----+---------------+
+
+ # CREATE_MAP FUNCTION
+ ------------------------
+ from pyspark.sql.types import StructType, StructField, StringType, IntegerType
+
+data = [ (100, "Mobile", 20000, 10), \
+         (200, "Laptop", 85000, 12), \
+         (300, "Television", 45000,8), \
+         (400, "Monitor", 7000,9), 
+         (500, "Headset", 6500, 15) ]
+
+schema = StructType ([
+         StructField('ProductID', IntegerType(), True),
+         StructField('ProductName', StringType(), True), 
+         StructField('UnitPrice', IntegerType(), True),
+         StructField('DiscountPercent',IntegerType(),True)
+         ])
+df = spark.createDataFrame (data=data, schema=schema)
+
+df.display ()
+
++---------+-----------+---------+---------------+
+|ProductID|ProductName|UnitPrice|DiscountPercent|
++---------+-----------+---------+---------------+
+|      100|     Mobile|    20000|             10|
+|      200|     Laptop|    85000|             12|
+|      300| Television|    45000|              8|
+|      400|    Monitor|     7000|              9|
+|      500|    Headset|     6500|             15|
++---------+-----------+---------+---------------+
+
+Creating the Map function 
+-------------------------
+from pyspark.sql.functions import col,create_map,lit 
+create_map = df.select(col("ProductID"),col("ProductName"),col("UnitPrice"),col("DiscountPercent"),
+                       create_map(col("ProductName"),col("UnitPrice")).alias("PriceDict")).show()
+
+display(create_map)
+
++---------+-----------+---------+---------------+--------------------+
+|ProductID|ProductName|UnitPrice|DiscountPercent|           PriceDict|
++---------+-----------+---------+---------------+--------------------+
+|      100|     Mobile|    20000|             10|   {Mobile -> 20000}|
+|      200|     Laptop|    85000|             12|   {Laptop -> 85000}|
+|      300| Television|    45000|              8|{Television -> 45...|
+|      400|    Monitor|     7000|              9|   {Monitor -> 7000}|
+|      500|    Headset|     6500|             15|   {Headset -> 6500}|
++---------+-----------+---------+---------------+--------------------+
+
+
+create function and Litfunction
+--------------------------------
+from pyspark.sql.functions import col, create_map, lit 
+
+litfunction = df.withColumn("PriceDict", create_map(lit("Product_Name"),col("ProductName"),lit("Unit_Price"),col("UnitPrice"))).show(truncate = False)
+display(litfunction)
+
++---------+-----------+---------+---------------+-------------------------------------------------+
+|ProductID|ProductName|UnitPrice|DiscountPercent|PriceDict                                        |
++---------+-----------+---------+---------------+-------------------------------------------------+
+|100      |Mobile     |20000    |10             |{Product_Name -> Mobile, Unit_Price -> 20000}    |
+|200      |Laptop     |85000    |12             |{Product_Name -> Laptop, Unit_Price -> 85000}    |
+|300      |Television |45000    |8              |{Product_Name -> Television, Unit_Price -> 45000}|
+|400      |Monitor    |7000     |9              |{Product_Name -> Monitor, Unit_Price -> 7000}    |
+|500      |Headset    |6500     |15             |{Product_Name -> Headset, Unit_Price -> 6500}    |
++---------+-----------+---------+---------------+-------------------------------------------------+
+
+# HOW TO ENABLE THE DELTA CACHE/ DISK CACHE/ DBIO  
+-------------------------------------------------
+-> spark.conf.set("spark.databricks.io.cache.enabled", "true")
+-> spark.conf.set("spark.databricks.io.cache.enabled")
+
+how to cache table 
+--------------------
+select * from names;
+CACHE select * from names;
+
+# ********* How to read the Excel file **********  ?
+---------------------------------------------------
+we can't read the excel file like other files, we need to install the libraries in the cluster level or in the notebook level, 
+(com.crealytics:spark-excel_2.12:0.13.5) --> is the library to be installed before reading the excel file 
+
+command: 
+--------
+-> df = spark.read.format("com.crealytics.spark.excel").option("inferschema", False).option("Header", True).option("dataAddress","sheet3!").load("filelocation")
+
+-> df = spark.read.format("com.crealytics.spark.excel").option("inferschema", False).option("Header", True).option("dataAddress","sheet2!").load("filelocation")
+
+-> In case if we want to combine all the excel sheets in to single o/p then we need to create the User defined function and then combine all th files. 
+
+# Handlining Duplicate Data: DropDuplicates vs Distinct
+-------------------------------------------------------
+#Create Sample DataFrame 
+simpleData = (
+              (111, "James", 8),
+              (222, "Mike", 5), \
+              (111, "James", 8), \
+              (222, "Mike", 12)
+              )
+columns= ["id", "name","score"]
+df = spark.createDataFrame(data = simpleData, schema = columns)
+df.display ()
+
++---+-----+-----+
+| id| name|score|
++---+-----+-----+
+|111|James|    8|
+|222| Mike|    5|
+|111|James|    8|
+|222| Mike|   12|
++---+-----+-----+
+
+#Distinct to remove the Duplicates
+----------------------------------- 
+df1 = df.distinct().display()
+
++---+-----+-----+
+| id| name|score|
++---+-----+-----+
+|111|James|    8|
+|222| Mike|    5|
+|222| Mike|   12|
++---+-----+-----+
+
+#Distinct with Subset 
+--------------------
+subset = df.select(['id','name']).distinct().show()
++---+-----+
+| id| name|
++---+-----+
+|111|James|
+|222| Mike|
++---+-----+
+
+#Drop duplicate with out subset 
+-------------------------------
+df.dropDuplicates().display()
+
++---+-----+-----+
+| id| name|score|
++---+-----+-----+
+|111|James|    8|
+|222| Mike|    5|
+|222| Mike|   12|
++---+-----+-----+
+
+#Drop duplicate with subset 
+---------------------------
+df.dropDuplicates(['id','name']).display()
+
++---+-----+-----+
+| id| name|score|
++---+-----+-----+
+|111|James|    8|
+|222| Mike|    5|
++---+-----+-----+
