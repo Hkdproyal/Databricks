@@ -1859,3 +1859,26 @@ df.dropDuplicates(['id','name']).display()
 |111|James|    8|
 |222| Mike|    5|
 +---+-----+-----+
+
+#SELECT VS WITHCOLUMN
+-------------------------
+withcolumn will degrade the performance, when ever we add new column to the strucuture it will internally create the new dataframe, if we create more than 4 column then the shuffling will take place which is costly and performace bottleneck will take place 
+
+Select operation is recommended, eventhought if we create more number of column the shuffling will take place only once and dataframe is also create only once for all the new columns created. 
+
+Example btn SELCT vs WITHCOLUMN 
+-------------------------------
+from pyspark.sql.functions import col, concat, lit, current_timestamp
+dfSelect = df.select ("*",concat (col ("FirstName"), lit (" "), col("LastName")). alias ("Name"),
+                          lit (10) .alias ("BonusPercent"), 
+                          (col ("salary")*lit (10)) .alias ("TotalSalary"),
+                          current_timestamp() .alias ("DateCreated"))
+display (dfSelect)
+
+# SELECT VS WITHCOLUMN
+
+dfwithColumn = df.withColumn ("Name", concat (col ("FirstName"), lit (" "), col ("LastName"))) \
+                 .withColumn("BonusPercent",lit(10)) \
+                 .withColumn ("TotalSalary",col ("salary") *col ("BonusPercent")) \
+                 .withColumn ("DateCreated", current_timestamp ())
+display (dfwithColumn)
