@@ -1,1 +1,2 @@
 
+if object_id('control.testuser')is not null truncate table control.testuser
